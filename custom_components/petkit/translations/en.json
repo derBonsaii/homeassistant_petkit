@@ -674,6 +674,9 @@
       },
       "last_fed_pet": {
         "name": "Last fed pet"
+      },
+      "last_drinking_pet": {
+        "name": "Last drinking pet"
       }
     },
     "switch": {

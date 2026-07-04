@@ -932,6 +932,17 @@ async def async_setup_entry(
         if isinstance(device, Feeder)
     )
 
+    # Add "last drinking pet" sensor for every water fountain (W7H only -
+    # drink_over records already carry a resolved pet_name).
+    entities.extend(
+        PetkitFountainLastPetSensor(
+            coordinator=entry.runtime_data.coordinator,
+            device=device,
+        )
+        for device in devices
+        if isinstance(device, WaterFountain)
+    )
+
     async_add_entities(entities + entities_bt)
 
 
@@ -1066,6 +1077,63 @@ class PetkitFeederLastPetSensor(PetkitEntity, RestoreSensor):
             "eat_start_time": format_pet_date(info.get("eat_start_time")),
             "eat_end_time": format_pet_date(info.get("eat_end_time")),
             "amount_g": info.get("amount"),
+        }
+
+
+class PetkitFountainLastPetSensor(PetkitEntity, RestoreSensor):
+    """Shows which pet last drank at this water fountain (W7H only).
+
+    Unlike feeder records, W7H drink_over records already carry a resolved
+    pet_name, so the coordinator (fountain_last_pet_index) just needs to
+    pick the most recent one - no pet-list cross-reference required.
+    """
+
+    _attr_translation_key = "last_drinking_pet"
+    _restored_native_value: Any = None
+    _restored_attributes: dict[str, Any] | None = None
+
+    def __init__(
+        self,
+        coordinator: PetkitDataUpdateCoordinator,
+        device: PetkitDevices,
+    ) -> None:
+        """Initialize the sensor."""
+        super().__init__(coordinator, device)
+        self.coordinator = coordinator
+        self.device = device
+
+    @property
+    def unique_id(self) -> str:
+        """Return a unique ID for the sensor."""
+        return (
+            f"{self.device.device_nfo.device_type}_{self.device.sn}_last_drinking_pet"
+        )
+
+    async def async_added_to_hass(self) -> None:
+        """Restore last known state on startup."""
+        await super().async_added_to_hass()
+        if (last_sensor_data := await self.async_get_last_sensor_data()) is not None:
+            self._restored_native_value = last_sensor_data.native_value
+        if (last_state := await self.async_get_last_state()) is not None:
+            self._restored_attributes = dict(last_state.attributes)
+
+    @property
+    def native_value(self) -> Any:
+        """Return the name of the pet that last drank here."""
+        info = self.coordinator.fountain_last_pet_index.get(self.device.id)
+        if info and info.get("pet_name"):
+            return info["pet_name"]
+        return self._restored_native_value
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any] | None:
+        """Return extra state attributes."""
+        info = self.coordinator.fountain_last_pet_index.get(self.device.id)
+        if not info:
+            return self._restored_attributes
+        return {
+            "pet_id": info.get("pet_id"),
+            "drink_time": format_pet_date(info.get("timestamp")),
         }
 
 

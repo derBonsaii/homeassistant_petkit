@@ -576,6 +576,9 @@
       },
       "last_fed_pet": {
         "name": "Zuletzt gef\u00fcttertes Tier"
+      },
+      "last_drinking_pet": {
+        "name": "Zuletzt trinkendes Tier"
       }
     }
   }

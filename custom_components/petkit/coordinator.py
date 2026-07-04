@@ -79,6 +79,11 @@ class PetkitDataUpdateCoordinator(DataUpdateCoordinator):
         # pet_id, so this cross-reference has to be done here rather than in
         # a single-device sensor value lambda.
         self.feeder_last_pet_index: dict[int, dict[str, Any]] = {}
+        # device_id (WaterFountain) -> {"pet_id", "pet_name", "timestamp"}
+        # for the most recent drink event (W7H only - drink_over records).
+        # Unlike feeder records, these already carry a resolved pet_name,
+        # so no cross-reference against the pet list is needed here.
+        self.fountain_last_pet_index: dict[int, dict[str, Any]] = {}
 
     def enable_smart_polling(self, nb_tic: int) -> None:
         """Enable smart polling."""
@@ -155,6 +160,7 @@ class PetkitDataUpdateCoordinator(DataUpdateCoordinator):
                         )
             self.previous_devices = self.current_devices
             self._update_feeder_last_pet_index(data)
+            self._update_fountain_last_pet_index(data)
             return data
 
     def _update_feeder_last_pet_index(
@@ -210,6 +216,42 @@ class PetkitDataUpdateCoordinator(DataUpdateCoordinator):
         except Exception:  # noqa: BLE001 - never let this break the update cycle
             LOGGER.exception(
                 "Failed to compute feeder_last_pet_index, keeping previous value"
+            )
+
+    def _update_fountain_last_pet_index(
+        self, data: dict[int, Feeder | Litter | WaterFountain | Purifier | Pet]
+    ) -> None:
+        """Resolve which pet last drank at each water fountain (W7H only).
+
+        Unlike feeder records, W7H drink_over records already carry a
+        resolved pet_name, so no pet-list cross-reference is needed. Never
+        let a parsing hiccup here break the whole coordinator update - keep
+        the previous index on failure.
+        """
+        try:
+            new_index: dict[int, dict[str, Any]] = {}
+            for device_id, entity in data.items():
+                if not isinstance(entity, WaterFountain):
+                    continue
+                records = entity.device_records or []
+                drink_events = [
+                    record
+                    for record in records
+                    if record.enum_event_type == RecordType.DRINK_OVER
+                    and record.pet_id is not None
+                ]
+                if not drink_events:
+                    continue
+                latest = max(drink_events, key=lambda record: record.timestamp or 0)
+                new_index[device_id] = {
+                    "pet_id": latest.pet_id,
+                    "pet_name": latest.pet_name,
+                    "timestamp": latest.timestamp,
+                }
+            self.fountain_last_pet_index = new_index
+        except Exception:  # noqa: BLE001 - never let this break the update cycle
+            LOGGER.exception(
+                "Failed to compute fountain_last_pet_index, keeping previous value"
             )
 
 
