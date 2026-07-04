@@ -73,6 +73,12 @@ class PetkitDataUpdateCoordinator(DataUpdateCoordinator):
         self.current_devices = set()
         self.fast_poll_tic = 0
         self.mqtt_connected = False
+        # device_id (Feeder) -> {"pet_id", "pet_name", "eat_start_time",
+        # "eat_end_time", "amount"} for the most recent eating event, resolved
+        # against the account's pet list. Feeder eating records only carry a
+        # pet_id, so this cross-reference has to be done here rather than in
+        # a single-device sensor value lambda.
+        self.feeder_last_pet_index: dict[int, dict[str, Any]] = {}
 
     def enable_smart_polling(self, nb_tic: int) -> None:
         """Enable smart polling."""
@@ -148,7 +154,65 @@ class PetkitDataUpdateCoordinator(DataUpdateCoordinator):
                             remove_config_entry_id=self.config_entry.entry_id,
                         )
             self.previous_devices = self.current_devices
+            self._update_feeder_last_pet_index(data)
             return data
+
+    def _update_feeder_last_pet_index(
+        self, data: dict[int, Feeder | Litter | WaterFountain | Purifier | Pet]
+    ) -> None:
+        """Resolve which pet last ate at each feeder.
+
+        Feeder eating records (Feeder.device_records.eat) only carry a
+        pet_id, not a pet name, so it has to be matched against the
+        account's Pet list. Never let a parsing hiccup here break the
+        whole coordinator update - keep the previous index on failure.
+        """
+        try:
+            pets_by_id = {
+                str(entity.pet_id): entity
+                for entity in data.values()
+                if isinstance(entity, Pet)
+            }
+            new_index: dict[int, dict[str, Any]] = {}
+            for device_id, entity in data.items():
+                if not isinstance(entity, Feeder):
+                    continue
+                records = entity.device_records
+                eat_days = getattr(records, "eat", None) if records else None
+                if not eat_days:
+                    continue
+                items = [
+                    item
+                    for day in eat_days
+                    for item in (day.items or [])
+                ]
+                if not items:
+                    continue
+                latest = max(
+                    items,
+                    key=lambda item: (
+                        item.eat_end_time
+                        or item.time
+                        or item.eat_start_time
+                        or item.completed_at
+                        or 0
+                    ),
+                )
+                pet = (
+                    pets_by_id.get(str(latest.pet_id))
+                    if latest.pet_id is not None
+                    else None
+                )
+                new_index[device_id] = {
+                    "pet_id": latest.pet_id,
+                    "pet_name": pet.pet_name if pet else None,
+                    "eat_start_time": latest.eat_start_time,
+                    "eat_end_time": latest.eat_end_time,
+                    "amount": latest.amount,
+                }
+            self.feeder_last_pet_index = new_index
+        except Exception:  # noqa: BLE001 - never let this break the update cycle
+            LOGGER.exception("Failed to compute feeder_last_pet_index, keeping previous value")
 
 
 class PetkitMediaUpdateCoordinator(DataUpdateCoordinator):
