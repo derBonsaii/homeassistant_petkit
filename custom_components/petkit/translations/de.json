@@ -573,6 +573,9 @@
         "total_time": {
           "name": "Gesamtnutzung"
         }
+      },
+      "last_fed_pet": {
+        "name": "Zuletzt gef\u00fcttertes Tier"
       }
     }
   }

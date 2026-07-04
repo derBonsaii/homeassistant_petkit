@@ -181,11 +181,7 @@ class PetkitDataUpdateCoordinator(DataUpdateCoordinator):
                 eat_days = getattr(records, "eat", None) if records else None
                 if not eat_days:
                     continue
-                items = [
-                    item
-                    for day in eat_days
-                    for item in (day.items or [])
-                ]
+                items = [item for day in eat_days for item in (day.items or [])]
                 if not items:
                     continue
                 latest = max(
@@ -212,7 +208,9 @@ class PetkitDataUpdateCoordinator(DataUpdateCoordinator):
                 }
             self.feeder_last_pet_index = new_index
         except Exception:  # noqa: BLE001 - never let this break the update cycle
-            LOGGER.exception("Failed to compute feeder_last_pet_index, keeping previous value")
+            LOGGER.exception(
+                "Failed to compute feeder_last_pet_index, keeping previous value"
+            )
 
 
 class PetkitMediaUpdateCoordinator(DataUpdateCoordinator):

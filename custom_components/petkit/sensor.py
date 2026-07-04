@@ -953,8 +953,7 @@ class PetkitFeederLastPetSensor(PetkitEntity, RestoreSensor):
     (feeder_last_pet_index) rather than here.
     """
 
-    _attr_translation_key = None
-    _attr_name = "Last fed pet"
+    _attr_translation_key = "last_fed_pet"
     _restored_native_value: Any = None
     _restored_attributes: dict[str, Any] | None = None
 

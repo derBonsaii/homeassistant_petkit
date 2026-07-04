@@ -587,6 +587,9 @@
       },
       "sand_tray_left_days": {
         "name": "Sand tray left days"
+      },
+      "last_fed_pet": {
+        "name": "Last fed pet"
       }
     },
     "switch": {
