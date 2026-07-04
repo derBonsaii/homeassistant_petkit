@@ -101,7 +101,7 @@ IMAGE_MAPPING: dict[type[PetkitDevices], list[PetKitImageDesc]] = {
         *COMMON_ENTITIES,
         PetKitImageDesc(
             key="Pet detected",
-            event_key="pet_detected",
+            event_key="pet_detect",
             translation_key="pet_detected",
             only_for_types=FOUNTAIN_WITH_CAMERA,
         ),
