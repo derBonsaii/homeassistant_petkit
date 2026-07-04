@@ -1134,6 +1134,7 @@ class PetkitFountainLastPetSensor(PetkitEntity, RestoreSensor):
         return {
             "pet_id": info.get("pet_id"),
             "drink_time": format_pet_date(info.get("timestamp")),
+            "duration_s": info.get("duration"),
         }
 
 

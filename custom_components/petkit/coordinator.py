@@ -247,6 +247,7 @@ class PetkitDataUpdateCoordinator(DataUpdateCoordinator):
                     "pet_id": latest.pet_id,
                     "pet_name": latest.pet_name,
                     "timestamp": latest.timestamp,
+                    "duration": latest.duration,
                 }
             self.fountain_last_pet_index = new_index
         except Exception:  # noqa: BLE001 - never let this break the update cycle
